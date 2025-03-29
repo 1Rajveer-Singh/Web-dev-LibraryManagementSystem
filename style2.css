@@ -1,0 +1,188 @@
+/* Main Styles and Variables */
+:root {
+    --primary-color: #3a6ea5;
+    --secondary-color: #004e89;
+    --accent-color: #ff6b6b;
+    --light-bg: #f8f9fa;
+    --dark-text: #333;
+    --light-text: #fff;
+    --border-radius: 8px;
+    --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+  }
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  
+  body {
+    background-color: var(--light-bg);
+    color: var(--dark-text);
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  /* Header Styles */
+  h1 {
+    color: var(--primary-color);
+    text-align: center;
+    margin: 20px 0;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: 600;
+  }
+  
+  /* Form Styles */
+  form {
+    background-color: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  label {
+    font-weight: bold;
+    color: var(--secondary-color);
+    margin-right: 5px;
+  }
+  
+  select, input {
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    font-size: 16px;
+    transition: var(--transition);
+  }
+  
+  select:focus, input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(58, 110, 165, 0.2);
+  }
+  
+  button {
+    background-color: var(--primary-color);
+    color: var(--light-text);
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: bold;
+    margin-left: auto;
+  }
+  
+  button:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+  }
+  
+  button[type="button"] {
+    background-color: #6c757d;
+  }
+  
+  button[type="button"]:hover {
+    background-color: #5a6268;
+  }
+  
+  button[type="button"]:last-of-type {
+    background-color: #28a745;
+  }
+  
+  button[type="button"]:last-of-type:hover {
+    background-color: #218838;
+  }
+  
+  /* Table Styles */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background-color: white;
+    box-shadow: var(--box-shadow);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+  
+  th {
+    background-color: var(--primary-color);
+    color: var(--light-text);
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+  }
+  
+  td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+  
+  tr:hover {
+    background-color: rgba(58, 110, 165, 0.05);
+  }
+  
+  /* Pagination Styles */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    margin: 30px 0;
+    gap: 10px;
+  }
+  
+  .pagination a {
+    color: var(--primary-color);
+    background-color: white;
+    padding: 8px 15px;
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: var(--transition);
+  }
+  
+  .pagination a:hover {
+    background-color: var(--primary-color);
+    color: var(--light-text);
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    button {
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    table {
+      display: block;
+      overflow-x: auto;
+    }
+  }
+  
+ 
+ 
+  
+  
+  
+  /* Highlight current search */
+  input:not(:placeholder-shown) {
+    border-color: var(--accent-color);
+    background-color: rgba(255, 107, 107, 0.05);
+  }

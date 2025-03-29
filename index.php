@@ -1,3 +1,125 @@
+<?php 
+require_once 'db_connection.php';
+// Initialize variables
+$message = '';
+$messageType = '';
+$recentActivities = [];
+$regNo = $studentName = $activity = '';
+// Start session to store messages between redirects
+session_start();
+// Check for messages from previous POST request
+if (isset($_SESSION['message']) && isset($_SESSION['messageType'])) {
+    $message = $_SESSION['message'];
+    $messageType = $_SESSION['messageType'];
+    
+    // Clear session variables after use
+    unset($_SESSION['message']);
+    unset($_SESSION['messageType']);
+}
+// Set timezone to India Standard Time (IST)
+date_default_timezone_set('Asia/Kolkata');
+// Handle POST request for logging activity
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'logActivity') {
+    $conn = connectDB();
+    
+    if (!$conn) {
+        $_SESSION['message'] = "Database connection failed!";
+        $_SESSION['messageType'] = "error";
+        // Redirect early if connection fails
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit();
+    }
+    
+    // Validate input
+    $regNo = trim($_POST['regNo'] ?? '');
+    $studentName = trim($_POST['studentName'] ?? '');
+    $activity = trim($_POST['activity'] ?? '');
+    
+    if (empty($regNo) || empty($studentName) || empty($activity)) {
+        $_SESSION['message'] = "Please fill all required fields!";
+        $_SESSION['messageType'] = "error";
+    } else if (!preg_match('/^[A-Za-z0-9]{6,10}$/', $regNo)) {
+        $_SESSION['message'] = "Registration number must be 6-10 alphanumeric characters!";
+        $_SESSION['messageType'] = "error";
+    } else if (strlen($studentName) < 3) {
+        $_SESSION['message'] = "Student name must be at least 3 characters!";
+        $_SESSION['messageType'] = "error";
+    } else if (strlen($activity) > 255) {
+        // Added validation for activity length
+        $_SESSION['message'] = "Activity description is too long!";
+        $_SESSION['messageType'] = "error";
+    } else {
+        try {
+            // Get current date and time in IST
+            $current_date = date("Y-m-d");
+            $current_time = date("H:i:s");
+            
+            // Prepare statement
+            $stmt = $conn->prepare("INSERT INTO activity_log (registration_no, name, activity, date, time) VALUES (?, ?, ?, ?, ?)");
+            
+            if (!$stmt) {
+                throw new Exception("Prepare failed: " . $conn->error);
+            }
+            
+            // Bind parameters
+            $stmt->bind_param("sssss", $regNo, $studentName, $activity, $current_date, $current_time);
+            
+            // Execute
+            if ($stmt->execute()) {
+                $_SESSION['message'] = "Activity logged successfully!";
+                $_SESSION['messageType'] = "success";
+                $regNo = $studentName = $activity = ''; // Clear input fields after success
+            } else {
+                throw new Exception("Execute failed: " . $stmt->error);
+            }
+            
+            $stmt->close();
+        } catch (Exception $e) {
+            $_SESSION['message'] = "Error: " . $e->getMessage();
+            $_SESSION['messageType'] = "error";
+        }
+    }
+    
+    $conn->close();
+    
+    // Redirect to the same page to prevent form resubmission on refresh
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
+}
+// Fetch recent activities
+try {
+    $conn = connectDB();
+    
+    if (!$conn) {
+        // Handle connection failure
+        $message = "Database connection failed when fetching activities";
+        $messageType = "error";
+    } else {
+        $stmt = $conn->prepare("SELECT registration_no, name, activity, date, time FROM activity_log ORDER BY date DESC, time DESC LIMIT 10");
+        
+        if ($stmt && $stmt->execute()) {
+            $result = $stmt->get_result();
+            
+            while ($row = $result->fetch_assoc()) {
+                $recentActivities[] = $row;
+            }
+            
+            $stmt->close();
+        } else {
+            $message = "Failed to fetch recent activities";
+            $messageType = "error";
+        }
+        
+        $conn->close();
+    }
+} catch (Exception $e) {
+    error_log("Error fetching activities: " . $e->getMessage());
+    $message = "Error fetching recent activities";
+    $messageType = "error";
+}
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +128,47 @@
     <meta name="description" content="Library Management System for tracking books and student activities">
     <title>Library Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .butfive {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+    display: inline-block;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    outline: none;
+}
+
+.butfive:hover {
+    background: linear-gradient(135deg, #27ae60, #219150);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(39, 174, 96, 0.5);
+}
+
+.butfive:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(39, 174, 96, 0.5);
+}
+
+.butfive:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+    </style>
 </head>
 <body>
     <div class="alert alert-warning alert-animated">
@@ -63,6 +225,9 @@
             <button class="tab-button admin-tab" data-tab="return-books" role="tab" aria-selected="false" aria-controls="return-books" disabled>Return Books</button>
             <button class="tab-button admin-tab" data-tab="delete-books" role="tab" aria-selected="false" aria-controls="delete-books" disabled>Delete Books</button>
             <button class="tab-button admin-tab" data-tab="view-issued" role="tab" aria-selected="false" aria-controls="view-issued" disabled>Issued Books</button>
+           
+            <button class="tab-button admin-tab" data-tab="Record Manager" role="tab" aria-selected="false" aria-controls="records-manager"onclick="window.location.href='check.php';" disabled>Records Management</button>
+
         </div>
         
         <!-- Tab Content -->
@@ -77,35 +242,25 @@
                         
                         <div id="success-message" class="success hidden" role="alert">Activity logged successfully!</div>
                         
-                        <form id="activityForm" method="POST" action="" novalidate>
-                            <div class="form-group">
-                                <label for="regNo">Registration Number:</label>
-                                <input type="text" id="regNo" name="regNo" autocomplete="off" placeholder="Enter registration number" required aria-describedby="regNo-error">
-                                <div class="error" id="regNo-error" role="alert"></div>
-                            </div>
+                        <form method="POST" action="">
+                            <input type="hidden" name="action" value="logActivity">
                             
-                            <div class="form-group">
-                                <label for="studentName">Student Name:</label>
-                                <input type="text" id="studentName" name="studentName" autocomplete="name" placeholder="Enter student name" required aria-describedby="name-error">
-                                <div class="error" id="name-error" role="alert"></div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="activity">Activity:</label>
-                                <select id="activity" name="activity" required aria-describedby="activity-error">
-                                    <option value="" disabled selected>Select activity</option>
-                                    <option value="study">Study</option>
-                                    <option value="reading_book">Reading Book</option>
-                                    <option value="return_book">Return Book</option>
-                                    <option value="issue_book">Issue Book</option>
-                                    <option value="research">Research</option>
-                                    <option value="group_study">Group Study</option>
-                                </select>
-                                <div class="error" id="activity-error" role="alert"></div>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-success">Log Activity</button>
-                        </form>   
+                            <label for="regNo">Registration Number:</label>
+                            <input type="text" id="regNo" name="regNo" value="<?php echo htmlspecialchars($regNo); ?>" required pattern="[A-Za-z0-9]{6,10}" title="Registration number must be 6-10 alphanumeric characters">
+                    
+                            <label for="studentName">Student Name:</label>
+                            <input type="text" id="studentName" name="studentName" value="<?php echo htmlspecialchars($studentName); ?>" required minlength="3">
+                    
+                            <label for="activity">Activity:</label>
+                            <select id="activity" name="activity" required>
+                                <option value="" disabled selected>Select activity</option>
+                                <option value="study" <?php echo $activity === 'study' ? 'selected' : ''; ?>>Study</option>
+                                <option value="reading_book" <?php echo $activity === 'reading_book' ? 'selected' : ''; ?>>Reading Book</option>
+                                <option value="return_book" <?php echo $activity === 'return_book' ? 'selected' : ''; ?>>Return Book</option>
+                            </select>
+                            <br><br>
+                            <button type="submit" class="butfive">Log Activity</button>
+                        </form>
                     </div>
                 </div>
                 
