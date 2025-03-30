@@ -127,6 +127,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Library Management System for tracking books and student activities">
     <title>Library Management System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -167,6 +168,73 @@ try {
     box-shadow: none;
     transform: none;
 }
+
+#progressBar {
+    width: 100%;
+    height: 25px;
+    background: #eee;
+    border-radius: 5px;
+    margin-top: 15px;
+    overflow: hidden;
+    box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
+}
+#progressFill {
+    height: 100%;
+    width: 0%;
+    background: #4CAF50;
+    color: white;
+    line-height: 25px;
+    text-align: center;
+    border-radius: 5px;
+    transition: width 0.4s ease-in-out;
+}
+
+#result {
+    margin-top: 20px;
+    padding: 10px;
+    font-size: 14px;
+    display: none;
+    border-radius: 5px;
+}
+#fileInput {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #007bff;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+}
+
+#fileInput:hover {
+    background-color: #e9ecef;
+    border-color: #0056b3;
+}
+
+#fileInput::-webkit-file-upload-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s ease;
+}
+
+#fileInput::-webkit-file-upload-button:hover {
+    background-color: #0056b3;
+}
+
+
+
+
+
+
+
+
+
 
     </style>
 </head>
@@ -341,12 +409,124 @@ try {
                             </tbody>
                         </table>
                     </div>
+                    
                 </div>
             </div>
             
             <!-- Add Books Tab -->
             <div id="add-books" class="tab-pane" role="tabpanel" aria-labelledby="add-books-tab">
-                <div class="form-section">
+            <div class="form-section">
+        <h2>Upload Excel File Data To Database</h2>
+        <input type="file" id="fileInput" accept=".xlsx, .xls">
+        <button class="btn btn-success" onclick="processExcel()">Upload</button>
+        <div id="progressBar"><div id="progressFill">0%</div></div>
+        <div id="result"></div>
+    </div><script>
+        function processExcel() {
+    let fileInput = document.getElementById("fileInput");
+    let file = fileInput.files[0];
+
+    if (!file) {
+        showError("Please select an Excel file.");
+        return;
+    }
+
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+        showError("Invalid file format. Please upload a valid Excel file.");
+        return;
+    }
+
+    let reader = new FileReader();
+    
+    reader.onload = function (e) {
+        try {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, { type: "array" });
+
+            if (workbook.SheetNames.length === 0) {
+                showError("Excel file is empty or corrupted.");
+                return;
+            }
+
+            let sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let jsonData = XLSX.utils.sheet_to_json(sheet);
+
+            if (!jsonData.length) {
+                showError("Excel file contains no valid data.");
+                return;
+            }
+
+            let requiredColumns = ["id", "title", "author", "publisher", "year"];
+            let firstRow = jsonData[0];
+
+            if (!requiredColumns.every(col => col in firstRow)) {
+                showError("Excel file is missing required columns: " + requiredColumns.join(", "));
+                return;
+            }
+
+            let invalidRows = [];
+            jsonData.forEach((row, index) => {
+                if (!row.id || !row.title || !row.author || !row.publisher || isNaN(row.year)) {
+                    invalidRows.push(index + 1);
+                }
+            });
+
+            if (invalidRows.length > 0) {
+                showError(`Invalid data in rows: ${invalidRows.join(", ")}. Ensure all fields are filled correctly.`);
+                return;
+            }
+
+            document.getElementById("progressBar").style.display = "block";
+            document.getElementById("progressFill").style.width = "30%";
+
+            fetch("api/upload.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("progressFill").style.width = "100%";
+                setTimeout(() => document.getElementById("progressBar").style.display = "none", 500);
+
+                if (data.success) {
+                    showSuccess(`Books uploaded successfully. Verified: ${data.details.verified}/${data.details.total}. Skipped: ${data.details.skipped}`);
+                } else {
+                    showError(`Upload failed: ${data.message}<br>Errors: ${data.errors ? data.errors.join("<br>") : "Unknown error"}`);
+                }
+            })
+            .catch(error => {
+                showError("An error occurred while sending data: " + error.message);
+            });
+        } catch (error) {
+            showError("Error processing file: " + error.message);
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+function showError(message) {
+    let result = document.getElementById("result");
+    result.style.display = "block";
+    result.style.background = "#f8d7da";
+    result.innerHTML = `<strong>Error:</strong> ${message}`;
+}
+
+function showSuccess(message) {
+    let result = document.getElementById("result");
+    result.style.display = "block";
+    result.style.background = "#d4edda";
+    result.innerHTML = `<strong>Success:</strong> ${message}`;
+}
+
+
+    </script>
+   
+            
+                
+                
+                   <div class="form-section">
                     <h2>Add New Book</h2>
                     <form id="addBookForm" novalidate>
                         <div class="form-group">
@@ -375,6 +555,7 @@ try {
                             <div class="error" id="year-error" role="alert"></div>
                         </div>
                         <button type="submit" class="btn btn-success">Add Book</button>
+                        
                     </form>
                 </div>
             </div>
